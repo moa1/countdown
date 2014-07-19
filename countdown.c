@@ -87,6 +87,8 @@ int main(int argc, char** argv) {
 		struct timeval tv_rem; // remaining
 		timersub(&tv_stop, &tv_now, &tv_rem);
 		
+		tv_rem.tv_sec += 1; //we're waiting 1s after printing, not before
+		
 		int d_rem = tv_rem.tv_sec / (60*60*24);
 		int h_rem = (tv_rem.tv_sec % (60*60*24)) / (60*60);
 		int m_rem = (tv_rem.tv_sec % (60*60)) / 60;
@@ -100,6 +102,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	
+	printf("\r0 seconds (0 d    0 h  0 m  0 s) until %s", buf_stop);
 	printf("\n");
 	
 	return 0;
