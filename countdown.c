@@ -36,15 +36,93 @@ int parse_duration(int argc, char** argv, float* seconds) {
 	return 1;
 }
 
+int parse_timepoint(int argc, char** argv, float* seconds) {
+	int i;
+	int is_timepoint=0;
+	for (i=1; i<argc; i++) {
+		if (strchr(argv[i], ':')) {
+			is_timepoint=1;
+			break;
+		}
+	}
+	if (!is_timepoint)
+		return 0;
+	if (argc > 2)
+		return -1;
+	
+	int hour, minute;
+	// TODO: allow specifying hh:mm:ss as well as hh:mm.
+	int second = 0;
+	if (sscanf(argv[1], "%i:%i", &hour, &minute) < 2) {
+		fprintf(stderr, "recognition error\n");
+		return -1;
+	}
+	
+	// check whether the point in time is in the next day
+	struct timeval tv_now;
+	if (gettimeofday(&tv_now, NULL) == -1) {
+		perror("gettimeofday error");
+		exit(2);
+	}
+	struct tm tm;
+	if (!localtime_r(&(tv_now.tv_sec), &tm)) {
+		perror("localtime_r error");
+		exit(2);
+	}
+	int tomorrow=0;
+	if (tm.tm_hour > hour
+		|| tm.tm_hour == hour && tm.tm_min > minute
+		|| tm.tm_hour == hour && tm.tm_min == minute && tm.tm_sec != 0
+		)
+		tomorrow=1;
+	
+	// set tm to target time
+	if (tomorrow) {
+		// add 1 day
+		tm.tm_mday += 1;
+	}
+	tm.tm_sec = 0;
+	tm.tm_min = minute;
+	tm.tm_hour = hour;
+	
+	time_t time_stop = mktime(&tm);
+	if (time_stop == -1) {
+		perror("mktime error");
+		exit(2);
+	}
+	
+	// convert time_stop to timeval-structure tv_stop
+	struct timeval tv_stop;
+	tv_stop.tv_sec = time_stop;
+	tv_stop.tv_usec = 0;
+	
+	// compute difference between tv_now and tv_stop
+	struct timeval tv_diff;
+	timersub(&tv_stop, &tv_now, &tv_diff);
+	float waittime = (float)tv_diff.tv_usec/1000000 + tv_diff.tv_sec;
+
+	*seconds = waittime;
+	return 1;
+}
+
 int main(int argc, char** argv) {
 	if (argc < 2) {
 		usage("need at least one number");
 		exit(1);
 	}
 	float waittime;
-	if (!parse_duration(argc, argv, &waittime)) {
-		usage("cannot parse duration");
+	int r = parse_timepoint(argc, argv, &waittime);
+	if (r == -1) {
+		usage("cannot parse point in time");
 		exit(1);
+	} else if (r == 0) {
+		if (!parse_duration(argc, argv, &waittime)) {
+			usage("cannot parse duration");
+			exit(1);
+		}
+	} else if  (r != 1) {
+		printf("Internal error: unknown return value\n");
+		exit(9);
 	}
 		
 	struct timeval tv_wait;
