@@ -8,23 +8,19 @@
 #include <math.h>
 
 void usage(char* msg){
-	fprintf(stderr, "%s\nUsage: countdown NUMBER[SUFFIX]...\n", msg);
+	fprintf(stderr, "%s\nUsage: countdown [ NUMBER[SUFFIX]... | POINT_IN_TIME ]\nExample 1: countdown 1.5m 3s\nExample 2: countdown 16:4\n", msg);
 }
 
-int main(int argc, char** argv) {
-	if (argc < 2) {
-		usage("need at least one number");
-		exit(1);
-	}
-	int i;
+int parse_duration(int argc, char** argv, float* seconds) {
 	float waittime = 0;
+	int i;
 	for (i=1; i<argc; i++) {
 		float number=0;
 		char suffix='\0';
 		//TODO: make entering "1ms" raise an error
 		if (sscanf(argv[i], "%f%c", &number, &suffix) < 1) {
-			usage("recognition error");
-			exit(1);
+			fprintf(stderr, "recognition error\n");
+			return 0;
 		}
 		if (suffix == '\0') suffix = 's';
 		switch(suffix) {
@@ -32,10 +28,24 @@ int main(int argc, char** argv) {
 			case 'm': waittime += number*60; break;
 			case 'h': waittime += number*60*60; break;
 			case 'd': waittime += number*60*60*24; break;
-			default: usage("unknown suffix"); exit(1); break;
+			default: fprintf(stderr, "unknown suffix\n"); return 0;
 		}
 	}
 	//printf("waittime:%f\n", waittime);
+	*seconds = waittime;
+	return 1;
+}
+
+int main(int argc, char** argv) {
+	if (argc < 2) {
+		usage("need at least one number");
+		exit(1);
+	}
+	float waittime;
+	if (!parse_duration(argc, argv, &waittime)) {
+		usage("cannot parse duration");
+		exit(1);
+	}
 		
 	struct timeval tv_wait;
 	tv_wait.tv_sec = (int)floorf(waittime);
