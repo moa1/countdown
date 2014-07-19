@@ -52,8 +52,7 @@ int main(int argc, char** argv) {
 	tv_wait.tv_usec = (int)((waittime - floorf(waittime)) * 1000000);
 	
 	struct timeval tv_start;
-	struct timezone tz;
-	if (gettimeofday(&tv_start, &tz) == -1) {
+	if (gettimeofday(&tv_start, NULL) == -1) {
 		perror("gettimeofday error");
 		exit(2);
 	}
@@ -77,8 +76,7 @@ int main(int argc, char** argv) {
 	
 	while(1) {
 		struct timeval tv_now;
-		struct timezone tz_now;
-		if (gettimeofday(&tv_now, &tz_now) == -1) {
+		if (gettimeofday(&tv_now, NULL) == -1) {
 			perror("gettimeofday error");
 			exit(2);
 		}
