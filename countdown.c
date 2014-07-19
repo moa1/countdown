@@ -180,7 +180,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	
-	printf("\r0 seconds (0 d    0 h  0 m  0 s) until %s", buf_stop);
+	printf("\r0 seconds (0 d  0 h  0 m  0 s) until %s", buf_stop);
 	printf("\n");
 	
 	return 0;
