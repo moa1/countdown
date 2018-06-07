@@ -1,7 +1,7 @@
 // compile with: gcc -lrt -lm -o countdown countdown.c
 
 #define _XOPEN_SOURCE //strptime, localtime_r
-#define _BSD_SOURCE //timersub
+#define _DEFAULT_SOURCE //timersub
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -11,10 +11,14 @@
 #include <math.h>
 
 void usage(char* msg){
-	if (msg != NULL) {
-		fprintf(stderr, "%s\n", msg);
-	}
-	fprintf(stderr, "Usage: countdown [ NUMBER[SUFFIX]... | POINT_IN_TIME ]\nExample 1: countdown 1.5m 3s\nExample 2: countdown 16:4\n");
+	fprintf(stderr, "Usage: countdown [ NUMBER[SUFFIX]... | POINT_IN_TIME ]\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "SUFFIX may be one of:\n");
+	fprintf(stderr, "'s' or no suffix for seconds,\n");
+	fprintf(stderr, "'m' for minutes,\n");
+	fprintf(stderr, "'h' for hours\n");
+	fprintf(stderr, "'d' for days.\n");
+	fprintf(stderr, "\n");
 	fprintf(stderr, "POINT_IN_TIME can have one of the following formats:\n");
 	fprintf(stderr, "7:4 or 07:04 (today or tomorrow, seconds=0)\n");
 	fprintf(stderr, "7:4:59 (today or tomorrow)\n");
@@ -22,11 +26,25 @@ void usage(char* msg){
 	fprintf(stderr, "Monday 7:4:59 (weekday, in this or next week)\n");
 	fprintf(stderr, "2014-07-22 7:4 (error if in the past, seconds=0)\n");
 	fprintf(stderr, "2014-07-22 7:4:59 (error if in the past)\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "Example 1: countdown 1.5m 3s\n");
+	fprintf(stderr, "Example 2: countdown 16:4\n");
+	if (msg != NULL) {
+		fprintf(stderr, "\nError: %s\n", msg);
+	}
 }
 
-/* Return the number of seconds that are in the args. argv[i] (with 1<=i<argc) may be a float or int number with one of the suffixes s,m,h,d. */
-int parse_duration(int argc, char** argv, float* seconds) {
-	float waittime = 0;
+/* Parse the number of seconds that are in the args.
+`argv[i]` (with 1<=i<`argc`) may be a float or int number with a suffix.
+Possible suffixes are:
+'s' or no suffix for seconds,
+'m' for minutes,
+'h' for hours
+'d' for days.
+Returns 1 if parsing into `seconds` succeeded.
+Returns 0 if parsing failed. */
+int parse_duration(int argc, char** argv, double* seconds) {
+	double waittime = 0;
 	int i;
 	for (i=1; i<argc; i++) {
 		float number=0;
@@ -93,8 +111,9 @@ double tm_diff(const struct tm* a, const struct tm* b) {
 "%A %H:%M:%S" (weekday, in this or next week)
 "%Y-%m-%d %H:%M" (error if in the past, seconds=0)
 "%Y-%m-%d %H:%M:%S" (error if in the past)
-Return 0 if parsing failed, 1 if it succeeded, and in this case sets seconds.*/
-int parse_with_strptime(int argc, char** argv, float* seconds) {
+Returns 1 if it succeeded, and in this case sets parsed_time.
+Returns 0 if parsing did not conform to one of the above formats. */
+int parse_with_strptime(int argc, char** argv, 	struct tm* parsed_time) {
 	// TODO: Sometimes, when running "countdown 1:0:59", it wants to wait until 1:0:58, not 1:0:59.
 	char *args;
 	{
@@ -146,27 +165,37 @@ int parse_with_strptime(int argc, char** argv, float* seconds) {
 		if (tm_diff(&tm_stop, &tm_now) < 0) {
 			tm_stop.tm_mday += 7;	// next week
 		}
-	} else if (try_strptime(args, "%Y-%m-%d%n%H:%M", &tm_stop) || try_strptime(args, "%Y-%m-%d%n%H:%M:%S", &tm_stop)) {
-		if (tm_diff(&tm_stop, &tm_now) < 0) {
-			usage("time is in the past");
-			exit(1);
-		}
+	} else if (try_strptime(args, "%Y-%m-%d%n%H:%M", &tm_stop)) {
+	} else if (try_strptime(args, "%Y-%m-%d%n%H:%M:%S", &tm_stop)) {
 	} else {
-		return 0;
+		return 0; //time parsing error
 	}
 	
-	time_t time_stop = mktime(&tm_stop);
-	if (time_stop == -1) {
-		perror("mktime error");
-		exit(2);
-	}
-	
-	// convert time_stop to timeval-structure tv_stop
+	memcpy(parsed_time, &tm_stop, sizeof(tm_stop));
+	//print_tm(parsed_time);
+	return 1;
+}
+
+/* Return how many seconds `tm_time` is in the future. */
+double tm_diff_to_now_seconds(const struct tm* tm_time) {
+	// convert `tm_time` to `time_t` and then to `timeval`-structure `tv_stop`
 	struct timeval tv_stop;
-	tv_stop.tv_sec = time_stop;
-	tv_stop.tv_usec = 0;
+	{
+		struct tm tm_stop;
+		memcpy(&tm_stop, tm_time, sizeof(tm_stop));
+		
+		time_t time_stop = mktime(&tm_stop);
+		if (time_stop == -1) {
+			perror("mktime error");
+			exit(2);
+		}
+
+		tv_stop.tv_sec = time_stop;
+		tv_stop.tv_usec = 0;
+	}
 	
 	// compute difference between now and tv_stop
+	double waittime;
 	{
 		struct timeval tv_now;
 		if (gettimeofday(&tv_now, NULL) == -1) {
@@ -176,12 +205,10 @@ int parse_with_strptime(int argc, char** argv, float* seconds) {
 
 		struct timeval tv_diff;
 		timersub(&tv_stop, &tv_now, &tv_diff);
-		float waittime = (float)tv_diff.tv_usec/1000000 + tv_diff.tv_sec;
-
-		*seconds = waittime;
+		waittime = (double)tv_diff.tv_usec/1000000 + tv_diff.tv_sec;
 	}
 
-	return 1;
+	return waittime;
 }
 
 // TODO: make another parse function which allows specifying the format string of strptime.
@@ -191,41 +218,64 @@ int main(int argc, char** argv) {
 		usage("need at least one number");
 		exit(1);
 	}
-	float waittime;
+	double waittime;
 	{
-		if (parse_with_strptime(argc, argv, &waittime)) {
-			// do nothing in here since parsing was successful
+		struct tm parsed_time;
+		if (parse_with_strptime(argc, argv, &parsed_time)) {
+			// parsing was successful.
+			waittime = tm_diff_to_now_seconds(&parsed_time);
+			if (waittime < 0) {
+				usage("time is in the past");
+				exit(1);
+			}
+			// parsing was successful and time `tm_stop` is in the future
 		} else if (!parse_duration(argc, argv, &waittime)) {
-			usage("cannot parse duration");
+			usage("cannot parse time or duration");
 			exit(1);
 		}
 	}
 
-	struct timeval tv_wait;
-	tv_wait.tv_sec = (int)floorf(waittime);
-	tv_wait.tv_usec = (int)((waittime - floorf(waittime)) * 1000000);
-	
-	struct timeval tv_start;
-	if (gettimeofday(&tv_start, NULL) == -1) {
-		perror("gettimeofday error");
-		exit(2);
-	}
+	// convert `waittime` to absolute time `tv_stop`.
 	struct timeval tv_stop;
-	timeradd(&tv_start, &tv_wait, &tv_stop);
+	{
+		struct timeval tv_wait;
+		{
+			int waittime_int = (int)floor(waittime);
+			tv_wait.tv_sec = waittime_int;
+			tv_wait.tv_usec = 0;
+			int waittime_usec = (int)((waittime - waittime_int) * 1000000);
 
-	char buf_stop[1000];
-	if (ctime_r(&(tv_stop.tv_sec), buf_stop) == NULL) {
-		perror("ctime_r error");
-		exit(2);
+			// wait for the fractional part of tv_wait.
+			{
+				printf("waiting %i microseconds", waittime_usec);
+				fflush(stdout);
+				if (usleep(waittime_usec) == -1) { // sleep microseconds
+					perror("usleep error");
+					exit(2);
+				}
+			}
+		}
+
+		// compute `tv_stop`.
+		{
+			struct timeval tv_start;
+			if (gettimeofday(&tv_start, NULL) == -1) {
+				perror("gettimeofday error");
+				exit(2);
+			}
+			timeradd(&tv_start, &tv_wait, &tv_stop);
+		}
 	}
-	buf_stop[strlen(buf_stop)-1] = '\0';	//remove the apparently existing newline sign
 	
-	printf("waiting %i microseconds", tv_wait.tv_usec);
-	fflush(stdout);
-	
-	if (usleep(tv_wait.tv_usec) == -1) { // sleep microseconds
-		perror("usleep error");
-		exit(2);
+	// print `tv_stop` into `buf_stop`.
+	char buf_stop[1000];
+	{
+		if (ctime_r(&(tv_stop.tv_sec), buf_stop) == NULL) {
+			perror("ctime_r error");
+			exit(2);
+		}
+		// remove the apparently existing newline sign.
+		buf_stop[strlen(buf_stop)-1] = '\0';
 	}
 	
 	while(1) {
