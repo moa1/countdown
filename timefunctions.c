@@ -10,8 +10,15 @@
 #include "timefunctions.h"
 
 // for debugging
-void print_tm(const struct tm* t) {
-	printf("%s\n", asctime(t));
+void print_tm(const struct tm* time) {
+	printf("sec=%i min=%i hour=%i mday=%i mon=%i year=%i wday=%i yday=%i isdst=%i\n", time->tm_sec, time->tm_min, time->tm_hour, time->tm_mday, time->tm_mon, time->tm_year, time->tm_wday, time->tm_yday, time->tm_isdst);
+	printf("%s\n", asctime(time));
+}
+
+int compare_tm(const void *t1, const void *t2) {
+	const struct tm *tm_t1 = (const struct tm *)t1;
+	const struct tm *tm_t2 = (const struct tm *)t2;
+	return (int)tm_diff(tm_t1, tm_t2);
 }
 
 /* Try to parse string s with the date-time-format format using strptime. Return 0 if the parsing failed (in which case tm is not modified) and 1 if every element of format was parsed (in this case tm is set to the parsed date-time). */
@@ -54,25 +61,8 @@ double tm_diff(const struct tm* a, const struct tm* b) {
 "%Y-%m-%d %H:%M:%S" (error if in the past)
 Returns 1 if it succeeded, and in this case sets parsed_time.
 Returns 0 if parsing did not conform to one of the above formats. */
-int parse_with_strptime(int argc, char** argv, 	struct tm* parsed_time) {
+int parse_with_strptime(char *time, struct tm* parsed_time) {
 	// TODO: Sometimes, when running "countdown 1:0:59", it wants to wait until 1:0:58, not 1:0:59.
-	char *args;
-	{
-		// length of all argv
-		int l=0;
-		for (int i=1; i<argc; i++) {
-			l += strlen(argv[i]);
-		}
-		l += 1; // \0 at the end
-		args = malloc(sizeof(char)*l);
-		
-		// concatenate argv
-		args[0] = '\0';
-		for (int i=1; i<argc; i++) {
-			strcat(args, argv[i]);
-		}
-	}
-	
 	struct tm tm_now;
 	{
 		// initialize tm with now.
@@ -92,11 +82,11 @@ int parse_with_strptime(int argc, char** argv, 	struct tm* parsed_time) {
 	memcpy(&tm_stop, &tm_now, sizeof(tm_stop));
 	tm_stop.tm_sec = 0;
 	
-	if (try_strptime(args, "%H:%M", &tm_stop) || try_strptime(args, "%H:%M:%S", &tm_stop)) {
+	if (try_strptime(time, "%H:%M", &tm_stop) || try_strptime(time, "%H:%M:%S", &tm_stop)) {
 		if (tm_diff(&tm_stop, &tm_now) < 0) {
 			tm_stop.tm_mday += 1;	// tomorrow
 		}
-	} else if (try_strptime(args, "%A%n%H:%M", &tm_stop) || try_strptime(args, "%A%n%H:%M:%S", &tm_stop)) {	//I'm not sure %A sets the whole date, it might set only tm_wday, in which case mktime normalizes a non-matching tm_wday away.
+	} else if (try_strptime(time, "%A%n%H:%M", &tm_stop) || try_strptime(time, "%A%n%H:%M:%S", &tm_stop)) {	//I'm not sure %A sets the whole date, it might set only tm_wday, in which case mktime normalizes a non-matching tm_wday away.
 		// we need to transfer the info in tm_stop.tm_wday to tm_stop.mday, because mktime ignores tm_wday.
 		int days_diff = tm_stop.tm_wday - tm_now.tm_wday;
 		if (days_diff < 0)
@@ -106,8 +96,8 @@ int parse_with_strptime(int argc, char** argv, 	struct tm* parsed_time) {
 		if (tm_diff(&tm_stop, &tm_now) < 0) {
 			tm_stop.tm_mday += 7;	// next week
 		}
-	} else if (try_strptime(args, "%Y-%m-%d%n%H:%M", &tm_stop)) {
-	} else if (try_strptime(args, "%Y-%m-%d%n%H:%M:%S", &tm_stop)) {
+	} else if (try_strptime(time, "%Y-%m-%d%n%H:%M", &tm_stop)) {
+	} else if (try_strptime(time, "%Y-%m-%d%n%H:%M:%S", &tm_stop)) {
 	} else {
 		return 0; //time parsing error
 	}

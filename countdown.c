@@ -76,8 +76,25 @@ int main(int argc, char** argv) {
 	}
 	double waittime;
 	{
+		char *args;
+		{
+			// length of all argv
+			int l=0;
+			for (int i=1; i<argc; i++) {
+				l += strlen(argv[i]);
+			}
+			l += 1; // \0 at the end
+			args = malloc(sizeof(char)*l);
+			
+			// concatenate argv
+			args[0] = '\0';
+			for (int i=1; i<argc; i++) {
+				strcat(args, argv[i]);
+			}
+		}
+
 		struct tm parsed_time;
-		if (parse_with_strptime(argc, argv, &parsed_time)) {
+		if (parse_with_strptime(args, &parsed_time)) {
 			// parsing was successful.
 			waittime = tm_diff_to_now_seconds(&parsed_time);
 			if (waittime < 0) {
