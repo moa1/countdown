@@ -1,16 +1,24 @@
-all: countdown
+all: countdown remindme
 
-CFLAGS="--std=c99 -lrt
+#DEBUG=-g
+CFLAGS=--std=c99 ${DEBUG}
+LDFLAGS=-lrt -lm ${DEBUG}
 
 timefunctions.o: timefunctions.c timefunctions.h
-	gcc -c --std=c99 -o timefunctions.o timefunctions.c
+	gcc ${CFLAGS} -c -o timefunctions.o timefunctions.c
 
 countdown.o: countdown.c timefunctions.h
-	gcc -c --std=c99 -o countdown.o countdown.c
+	gcc ${CFLAGS} -c -o countdown.o countdown.c
 
 countdown: countdown.o timefunctions.o
-	gcc --std=c99 -lrt -lm -o countdown countdown.o timefunctions.o
+	gcc ${LDFLAGS} -o countdown countdown.o timefunctions.o
+
+remindme.o: remindme.c timefunctions.h
+	gcc ${CFLAGS} -c -o remindme.o remindme.c
+
+remindme: remindme.o timefunctions.o
+	gcc ${LDFLAGS} -o remindme remindme.o timefunctions.o
 
 clean:
-	rm *.o countdown
+	rm -f *.o countdown remindme
 
