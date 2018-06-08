@@ -11,6 +11,7 @@ void usage(char *msg) {
 	fprintf(stderr, "\n");
 	fprintf(stderr, "OPTIONS:\n");
 	fprintf(stderr, "  -u  output reminders in the order in DATESFILE (sorting by date is default)\n");
+	fprintf(stderr, "  -c  enable color output\n");
 	fprintf(stderr, "  -v  verbose output\n");
 	fprintf(stderr, "  -p  verbose parsing of DATESFILE (for debugging DATES)\n");
 	fprintf(stderr, "  -d  enable debugging output\n");
@@ -173,6 +174,14 @@ void parse_datesfile(FILE *stream, int *parsed_reminders_num, reminder **parsed_
 	*parsed_reminders = reminders;
 }
 
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
 int main(int argc, const char **argv) {
 	if (argc < 2) {
 		usage("Must specify an input file");
@@ -180,6 +189,7 @@ int main(int argc, const char **argv) {
 	}
 
 	int sorted = 1;
+	int colors = 0;
 	int verbose = 0;
 	int debug = 0;
 	char *filename;
@@ -191,6 +201,8 @@ int main(int argc, const char **argv) {
 				no_opts = 1;
 			} else if (strcmp(arg, "-u") == 0) {
 				sorted = 0;
+			} else if (strcmp(arg, "-c") == 0) {
+				colors = 1;
 			} else if (strcmp(arg, "-v") == 0) {
 				verbose++;
 			} else if (strcmp(arg, "-p") == 0) {
@@ -243,6 +255,9 @@ int main(int argc, const char **argv) {
 	if (sorted)
 		qsort(reminders, reminders_num, sizeof(reminder), compare_reminders_tm);
 
+	const char *color_message = colors?ANSI_COLOR_RED:"'";
+	const char *color_reset = colors?ANSI_COLOR_RESET:"'";
+
 	int first_nhours = 1;
 	int first_hours = 1;
 	int first_today = 1;
@@ -274,28 +289,28 @@ int main(int argc, const char **argv) {
 				printf("In the past 3 hours:\n");
 				first_nhours = 0;
 			}
-			printf("%2i hours %2i minutes since '%s'\n", h_rem, m_rem, message);
+			printf("%2i hours %2i minutes since %s%s%s\n", h_rem, m_rem, color_message, message, color_reset);
 		} else if (seconds < hours_3) {
 			first_nhours = 1; first_today = 1; first_week = 1;
 			if (first_hours && verbose) {
 				printf("Within 3 hours:\n");
 				first_hours = 0;
 			}
-			printf("%2i hours %2i minutes until '%s'\n", h_rem, m_rem, message);
+			printf("%2i hours %2i minutes until %s%s%s\n", h_rem, m_rem, color_message, message, color_reset);
 		} else if (seconds < tomorrow) {
 			first_nhours = 1; first_hours = 1; first_week = 1;
 			if (first_today && verbose) {
 				printf("Within 24 hours:\n");
 				first_today = 0;
 			}
-			printf("%2i hours until '%s'\n", h_int, message);
+			printf("%2i hours until %s%s%s\n", h_int, color_message, message, color_reset);
 		} else if (seconds < tomorrow_7) {
 			first_nhours = 1; first_hours = 1; first_today = 1;
 			if (first_week && verbose) {
 				printf("Within a week:\n");
 				first_week = 0;
 			}
-			printf("%i days until '%s'\n", d_int, message);
+			printf("%i days until %s%s%s\n", d_int, color_message, message, color_reset);
 		}
 	}
 	
