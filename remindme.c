@@ -98,7 +98,7 @@ void parse_datesfile(FILE *stream, int *parsed_reminders_num, reminder **parsed_
 	void parse_date(char* field) {
 		if (verbose_parsing) fprintf(stderr, "parsing DATE '%s'\n", field);
 		if (!parse_with_strptime(field, &tm_date)) {
-			const char *midnight = " 23:59:59";
+			const char *midnight = " 0:0:0";
 			strncat(field, midnight, bufsize-strlen(field));
 			// try again
 			if (verbose_parsing) fprintf(stderr, "parsing DATE '%s'\n", field);
@@ -145,7 +145,7 @@ void parse_datesfile(FILE *stream, int *parsed_reminders_num, reminder **parsed_
 				}
 				if (ch == '/') {
 					field[field_count++] = '\0';
-					parse_date(field);
+					parse_date(field); //this assigns `tm_date`
 					field_count = 0;
 					state = 3; //skip to beginning of message
 				} else {
@@ -255,10 +255,15 @@ int main(int argc, const char **argv) {
 	if (sorted)
 		qsort(reminders, reminders_num, sizeof(reminder), compare_reminders_tm);
 
-	const char *color_message = colors?ANSI_COLOR_RED:"'";
+	const char *color_red = colors?ANSI_COLOR_RED:"'";
+	const char *color_green = colors?ANSI_COLOR_GREEN:"'";
+	const char *color_yellow = colors?ANSI_COLOR_YELLOW:"'";
+	const char *color_blue = colors?ANSI_COLOR_BLUE:"'";
+	const char *color_magenta = colors?ANSI_COLOR_MAGENTA:"'";
+	const char *color_cyan = colors?ANSI_COLOR_CYAN:"'";
 	const char *color_reset = colors?ANSI_COLOR_RESET:"'";
 
-	int first_nhours = 1;
+	int first_start = 1;
 	int first_hours = 1;
 	int first_today = 1;
 	int first_week = 1;
@@ -269,6 +274,9 @@ int main(int argc, const char **argv) {
 		}
 
 		char *date = asctime(reminders[i].date);
+		if (date[strlen(date)-1] == '\n') {
+			date[strlen(date)-1] = '\0';
+		}
 		char *message = reminders[i].message;
 		int d_rem = (int)seconds / (60*60*24);
 		int d_int = (int)ceil(seconds / (60*60*24));
@@ -278,39 +286,39 @@ int main(int argc, const char **argv) {
 		int m_int = (int)ceil((int)seconds % (60*60)) / 60;
 
 		const int hours_3 = 60*60*3;
-		const int tomorrow = 24*60*60;
-		const int tomorrow_7 = 24*60*60*7;
+		const int day = 24*60*60;
+		const int day_7 = day*7;
 
-		if (seconds < -hours_3) {
+		if (seconds < -day) {
 			// do nothing
 		} else if (seconds < 0) {
 			first_hours = 1; first_today = 1; first_week = 1;
-			if (first_nhours && verbose) {
-				printf("In the past 3 hours:\n");
-				first_nhours = 0;
+			if (first_start && verbose) {
+				printf("Today:\n");
+				first_start = 0;
 			}
-			printf("%2i hours %2i minutes since %s%s%s\n", h_rem, m_rem, color_message, message, color_reset);
+			printf("%2i hours %2i minutes since %s%s%s\n", h_rem, m_rem, color_magenta, message, color_reset);
 		} else if (seconds < hours_3) {
-			first_nhours = 1; first_today = 1; first_week = 1;
+			first_start = 1; first_today = 1; first_week = 1;
 			if (first_hours && verbose) {
 				printf("Within 3 hours:\n");
 				first_hours = 0;
 			}
-			printf("%2i hours %2i minutes until %s%s%s\n", h_rem, m_rem, color_message, message, color_reset);
-		} else if (seconds < tomorrow) {
-			first_nhours = 1; first_hours = 1; first_week = 1;
+			printf("%2i hours %2i minutes until %s%s%s\n", h_rem, m_rem, color_blue, message, color_reset);
+		} else if (seconds < day) {
+			first_start = 1; first_hours = 1; first_week = 1;
 			if (first_today && verbose) {
 				printf("Within 24 hours:\n");
 				first_today = 0;
 			}
-			printf("%2i hours until %s%s%s\n", h_int, color_message, message, color_reset);
-		} else if (seconds < tomorrow_7) {
-			first_nhours = 1; first_hours = 1; first_today = 1;
+			printf("%2i hours until %s%s%s\n", h_int, color_green, message, color_reset);
+		} else if (seconds < day_7) {
+			first_start = 1; first_hours = 1; first_today = 1;
 			if (first_week && verbose) {
 				printf("Within a week:\n");
 				first_week = 0;
 			}
-			printf("%i days until %s%s%s\n", d_int, color_message, message, color_reset);
+			printf("%i days until %s%s / %s%s\n", d_int, color_red, date, message, color_reset);
 		}
 	}
 	
