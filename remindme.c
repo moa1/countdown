@@ -276,10 +276,6 @@ int main(int argc, const char **argv) {
 			printf("seconds=%f ", seconds); print_reminder(&reminders[i]);
 		}
 
-		char *date = asctime(reminders[i].date);
-		if (date[strlen(date)-1] == '\n') {
-			date[strlen(date)-1] = '\0';
-		}
 		char *message = reminders[i].message;
 		int d_rem = (int)seconds / (60*60*24);
 		int d_int = (int)ceil(seconds / (60*60*24));
@@ -365,6 +361,10 @@ int main(int argc, const char **argv) {
 		} else if (seconds < day) {
 			printf(" %s%s%s\n", color_green, message, color_reset);
 		} else if (seconds < day_7) {
+			char *date = asctime(reminders[i].date);
+			if (date[strlen(date)-1] == '\n') {
+				date[strlen(date)-1] = '\0';
+			}
 			printf(" %s%s / %s%s\n", color_red, date, message, color_reset);
 		}
 	}
