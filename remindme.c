@@ -111,56 +111,57 @@ void parse_datesfile(FILE *stream, int *parsed_reminders_num, reminder **parsed_
 		}
 	}
 	
-	int state = 0; // ignore whitespace, wait for date
+	typedef enum {DATE, IGNORE, COMMENT, WHITESPACE, WHITE_TO_MESSAGE, MESSAGE} state_enum;
+	state_enum state = DATE; // ignore whitespace, wait for date
 	do {
 		int read_count = fread(buf, sizeof(char), bufsize, stream);
 
 		for (int i=0; i<read_count; i++) {
 			char ch = buf[i];
 			//printf("state=%i ch=%i\n",state,ch);
-			if (state == -1) {
+			if (state == IGNORE) {
 				if (char_is_whitespace(ch) || ch == '\n') {
 					// ignore
 				} else {
-					state = 0; //read date
+					state = DATE; //read date
 				}
 			}
 			if (ch == '#') {
-				state = 1; //comment
-			} else if (state == -1) {
+				state = COMMENT; //comment
+			} else if (state == IGNORE) {
 				// ignore
-			} else if (state == 1) {
+			} else if (state == COMMENT) {
 				// skip comment
 				if (ch == '\n') {
-					state = 0;
+					state = DATE;
 				}
-			} else if (state == 0 && char_is_whitespace(ch)) {
-				state = 2; //whitespace
-			} else if (state == 2 && char_is_whitespace(ch)) {
+			} else if (state == DATE && char_is_whitespace(ch)) {
+				state = WHITESPACE; //whitespace
+			} else if (state == WHITESPACE && char_is_whitespace(ch)) {
 				// ignore whitespace
-			} else if (state == 0 || (state == 2 && !char_is_whitespace(ch))) {
-				if (state == 2) {
+			} else if (state == DATE || (state == WHITESPACE && !char_is_whitespace(ch))) {
+				if (state == WHITESPACE) {
 					if (ch != '/')
 						field[field_count++] = ' ';
-					state = 0;
+					state = DATE;
 				}
 				if (ch == '/') {
 					field[field_count++] = '\0';
 					parse_date(field); //this assigns `tm_date`
 					field_count = 0;
-					state = 3; //skip to beginning of message
+					state = WHITE_TO_MESSAGE; //skip to beginning of message
 				} else {
 					buf_add_char(ch);
 				}
-			} else if (state == 3 && char_is_whitespace(ch)) {
+			} else if (state == WHITE_TO_MESSAGE && char_is_whitespace(ch)) {
 				// skip whitespace
-			} else if (state == 4 || (state == 3 && !char_is_whitespace(ch))) {
-				state = 4;
+			} else if (state == MESSAGE || (state == WHITE_TO_MESSAGE && !char_is_whitespace(ch))) {
+				state = MESSAGE;
 				if (ch == '\n') {
 					field[field_count++] = '\0';
 					add_reminder(&tm_date, field);
 					field_count = 0;
-					state = -1;
+					state = IGNORE;
 				} else {
 					buf_add_char(ch);
 				}
