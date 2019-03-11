@@ -304,7 +304,7 @@ int main(int argc, const char **argv) {
 				printf("Within 3 hours:\n");
 				first_hours = 0;
 			}
-			printf("%2i hours %2i minutes until %s%s%s\n", h_rem, m_rem, color_blue, message, color_reset);
+			printf("%2i hours %2i minutes until %s%s%s\n", h_rem, m_rem, color_cyan, message, color_reset);
 		} else if (seconds < day) {
 			first_start = 1; first_hours = 1; first_week = 1;
 			if (first_today && verbose) {
