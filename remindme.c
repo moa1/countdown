@@ -12,7 +12,8 @@ void usage(char *msg) {
 	fprintf(stderr, "OPTIONS:\n");
 	fprintf(stderr, "  -u  output reminders in the order in DATESFILE (sorting by date is default)\n");
 	fprintf(stderr, "  -c  enable color output\n");
-	fprintf(stderr, "  -v  verbose output\n");
+	fprintf(stderr, "  -v  increase verbosity (verbosity level should be in-between -2 and 1)\n");
+	fprintf(stderr, "  -V  decrease verbosity\n");
 	fprintf(stderr, "  -p  verbose parsing of DATESFILE (for debugging DATES)\n");
 	fprintf(stderr, "  -d  enable debugging output\n");
 	fprintf(stderr, "  -h  print this help\n");
@@ -205,6 +206,8 @@ int main(int argc, const char **argv) {
 				colors = 1;
 			} else if (strcmp(arg, "-v") == 0) {
 				verbose++;
+			} else if (strcmp(arg, "-V") == 0) {
+				verbose--;
 			} else if (strcmp(arg, "-p") == 0) {
 				verbose_parsing++;
 			} else if (strcmp(arg, "-d") == 0) {
@@ -289,36 +292,80 @@ int main(int argc, const char **argv) {
 		const int day = 24*60*60;
 		const int day_7 = day*7;
 
-		if (seconds < -day) {
-			// do nothing
-		} else if (seconds < 0) {
-			first_hours = 1; first_today = 1; first_week = 1;
-			if (first_start && verbose) {
-				printf("Today:\n");
-				first_start = 0;
+		// do nothing
+		if (seconds < -day) continue;
+
+		if (verbose > 0) {
+			if (seconds < 0) {
+				first_hours = 1; first_today = 1; first_week = 1;
+				if (first_start && verbose > 0) {
+					printf("Today:\n");
+					first_start = 0;
+				}
+			} else if (seconds < hours_3) {
+				first_start = 1; first_today = 1; first_week = 1;
+				if (first_hours && verbose > 0) {
+					printf("Within 3 hours:\n");
+					first_hours = 0;
+				}
+			} else if (seconds < day) {
+				first_start = 1; first_hours = 1; first_week = 1;
+				if (first_today && verbose > 0) {
+					printf("Within 24 hours:\n");
+					first_today = 0;
+				}
+			} else if (seconds < day_7) {
+				first_start = 1; first_hours = 1; first_today = 1;
+				if (first_week && verbose) {
+					printf("Within a week:\n");
+					first_week = 0;
+				}
 			}
-			printf("%2i hours %2i minutes since %s%s%s\n", h_rem, m_rem, color_magenta, message, color_reset);
-		} else if (seconds < hours_3) {
-			first_start = 1; first_today = 1; first_week = 1;
-			if (first_hours && verbose) {
-				printf("Within 3 hours:\n");
-				first_hours = 0;
+		}
+				
+		
+		if (seconds < 0 && seconds < hours_3) {
+			if (verbose < -2) {
+				printf("%02i%02i", h_rem, m_rem);
+			} else if (verbose == -2) {
+				printf("%2i:%2i", h_rem, m_rem);
+			} else if (verbose == -1) {
+				printf("%2ih %2im", h_rem, m_rem);
+			} else if (verbose >= 0) {
+				printf("%2i hours %2i minutes", h_rem, m_rem);
 			}
-			printf("%2i hours %2i minutes until %s%s%s\n", h_rem, m_rem, color_cyan, message, color_reset);
 		} else if (seconds < day) {
-			first_start = 1; first_hours = 1; first_week = 1;
-			if (first_today && verbose) {
-				printf("Within 24 hours:\n");
-				first_today = 0;
+			if (verbose < -2) {
+				printf("%02i", h_int);
+			} else if (verbose == -2 || verbose == -1) {
+				printf("%2ih", h_int);
+			} else if (verbose >= 0) {
+				printf("%2i hours", h_int);
 			}
-			printf("%2i hours until %s%s%s\n", h_int, color_green, message, color_reset);
 		} else if (seconds < day_7) {
-			first_start = 1; first_hours = 1; first_today = 1;
-			if (first_week && verbose) {
-				printf("Within a week:\n");
-				first_week = 0;
+			if (verbose < -2) {
+				printf("%i", d_int);
+			} else if (verbose == -2 || verbose == -1) {
+				printf("%id", d_int);
+			} else  if (verbose >= 0) {
+				printf("%i days", d_int);
 			}
-			printf("%i days until %s%s / %s%s\n", d_int, color_red, date, message, color_reset);
+		}
+
+		if (seconds < 0) {
+			printf(" since");
+		} else if (seconds < day_7) {
+			printf(" until");
+		}
+		
+		if (seconds < 0) {
+			printf(" %s%s%s\n", color_magenta, message, color_reset);
+		} else if (seconds < hours_3) {
+			printf(" %s%s%s\n", color_cyan, message, color_reset);
+		} else if (seconds < day) {
+			printf(" %s%s%s\n", color_green, message, color_reset);
+		} else if (seconds < day_7) {
+			printf(" %s%s / %s%s\n", color_red, date, message, color_reset);
 		}
 	}
 	
