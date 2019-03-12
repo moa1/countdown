@@ -96,21 +96,23 @@ void parse_datesfile(FILE *stream, int *parsed_reminders_num, reminder **parsed_
 	}
 
 	struct tm tm_date;
-	void parse_date(char* field) {
+	struct tm tm_now;
+	get_tm_now(&tm_now);
+	void parse_date(char* field, struct tm *tm_date_ptr) {
 		if (verbose_parsing) fprintf(stderr, "parsing DATE '%s'\n", field);
-		if (!parse_with_strptime(field, &tm_date)) {
+		if (!parse_with_strptime(field, tm_date_ptr, &tm_now)) {
 			const char *midnight = " 0:0:0";
 			strncat(field, midnight, bufsize-strlen(field));
 			// try again
 			if (verbose_parsing) fprintf(stderr, "parsing DATE '%s'\n", field);
-			if (!parse_with_strptime(field, &tm_date)) {
+			if (!parse_with_strptime(field, tm_date_ptr, &tm_now)) {
 				usage("wrong DATE format:");
 				fprintf(stderr, "%s\n", field);
 				exit(2);
 			}
 		}
 	}
-	
+
 	typedef enum {DATE, IGNORE, COMMENT, WHITESPACE, WHITE_TO_MESSAGE, MESSAGE} state_enum;
 	state_enum state = DATE; // ignore whitespace, wait for date
 	do {
@@ -147,7 +149,7 @@ void parse_datesfile(FILE *stream, int *parsed_reminders_num, reminder **parsed_
 				}
 				if (ch == '/') {
 					field[field_count++] = '\0';
-					parse_date(field); //this assigns `tm_date`
+					parse_date(field, &tm_date);
 					field_count = 0;
 					state = WHITE_TO_MESSAGE; //skip to beginning of message
 				} else {

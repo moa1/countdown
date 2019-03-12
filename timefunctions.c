@@ -52,6 +52,19 @@ double tm_diff(const struct tm* a, const struct tm* b) {
 	return difftime(t_a, t_b);
 }
 
+void get_tm_now(struct tm* tm_now) {
+	// initialize tm with now.
+	struct timeval tv_now;
+	if (gettimeofday(&tv_now, NULL) == -1) {
+		perror("gettimeofday error");
+		exit(2);
+	}
+	if (!localtime_r(&(tv_now.tv_sec), tm_now)) {
+		perror("localtime_r error");
+		exit(2);
+	}
+}
+
 /* Recognizes the following formats:
 "%H:%M" (today or tomorrow, seconds=0)
 "%H:%M:%S" (today or tomorrow)
@@ -61,39 +74,26 @@ double tm_diff(const struct tm* a, const struct tm* b) {
 "%Y-%m-%d %H:%M:%S" (error if in the past)
 Returns 1 if it succeeded, and in this case sets parsed_time.
 Returns 0 if parsing did not conform to one of the above formats. */
-int parse_with_strptime(char *time, struct tm* parsed_time) {
+int parse_with_strptime(char *time, struct tm* parsed_time, const struct tm * const tm_now) {
 	// TODO: Sometimes, when running "countdown 1:0:59", it wants to wait until 1:0:58, not 1:0:59.
-	struct tm tm_now;
-	{
-		// initialize tm with now.
-		struct timeval tv_now;
-		if (gettimeofday(&tv_now, NULL) == -1) {
-			perror("gettimeofday error");
-			exit(2);
-		}
-		if (!localtime_r(&(tv_now.tv_sec), &tm_now)) {
-			perror("localtime_r error");
-			exit(2);
-		}
-	}
 	
 	// init tm_stop
 	struct tm tm_stop;
-	memcpy(&tm_stop, &tm_now, sizeof(tm_stop));
+	memcpy(&tm_stop, tm_now, sizeof(tm_stop));
 	tm_stop.tm_sec = 0;
 	
 	if (try_strptime(time, "%H:%M", &tm_stop) || try_strptime(time, "%H:%M:%S", &tm_stop)) {
-		if (tm_diff(&tm_stop, &tm_now) < 0) {
+		if (tm_diff(&tm_stop, tm_now) < 0) {
 			tm_stop.tm_mday += 1;	// tomorrow
 		}
 	} else if (try_strptime(time, "%A%n%H:%M", &tm_stop) || try_strptime(time, "%A%n%H:%M:%S", &tm_stop)) {	//I'm not sure %A sets the whole date, it might set only tm_wday, in which case mktime normalizes a non-matching tm_wday away.
 		// we need to transfer the info in tm_stop.tm_wday to tm_stop.mday, because mktime ignores tm_wday.
-		int days_diff = tm_stop.tm_wday - tm_now.tm_wday;
+		int days_diff = tm_stop.tm_wday - tm_now->tm_wday;
 		if (days_diff < 0)
 			days_diff += 7;
 		tm_stop.tm_mday += days_diff;
 		// we still need to check if tm_stop is in the past, because tm_stop might be from today with a daytime before now.
-		if (tm_diff(&tm_stop, &tm_now) < 0) {
+		if (tm_diff(&tm_stop, tm_now) < 0) {
 			tm_stop.tm_mday += 7;	// next week
 		}
 	} else if (try_strptime(time, "%Y-%m-%d%n%H:%M", &tm_stop)) {
