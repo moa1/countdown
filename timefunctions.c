@@ -1,3 +1,4 @@
+
 // TODO: make another parse function which allows specifying the format string of strptime.
 
 #define _XOPEN_SOURCE //strptime, localtime_r
@@ -22,11 +23,15 @@ int compare_tm(const void *t1, const void *t2) {
 }
 
 /* Try to parse string s with the date-time-format format using strptime. Return 0 if the parsing failed (in which case tm is not modified) and 1 if every element of format was parsed (in this case tm is set to the parsed date-time). */
-int try_strptime(const char* s, const char* format, struct tm* tm) {
+int try_strptime(const char* s, const char* format, struct tm* tm, char** rest) {
 	struct tm tm_parsed;
 	memcpy(&tm_parsed, tm, sizeof(tm_parsed));
-	char* r = strptime(s, format, &tm_parsed);
-	if (r == NULL || *r != '\0')
+	char* rest_tmp;
+	rest_tmp = strptime(s, format, &tm_parsed);
+	if (rest != NULL)
+		*rest = rest_tmp;
+	//if (rest_tmp == NULL || *rest_tmp != '\0')
+	if (rest_tmp == NULL)
 		return 0;
 	memcpy(tm, &tm_parsed, sizeof(*tm));
 	return 1;
@@ -72,9 +77,13 @@ void get_tm_now(struct tm* tm_now) {
 "%A %H:%M:%S" (weekday, in this or next week)
 "%Y-%m-%d %H:%M" (error if in the past, seconds=0)
 "%Y-%m-%d %H:%M:%S" (error if in the past)
+"%Y%m%d %H%M%S" (error if in the past)
+"%Y%m%d %H%M" (error if in the past)
+"%Y%m%d %H" (error if in the past)
+"%Y%m%d" (error if in the past)
 Returns 1 if it succeeded, and in this case sets parsed_time.
 Returns 0 if parsing did not conform to one of the above formats. */
-int parse_with_strptime(char *time, struct tm* parsed_time, const struct tm * const tm_now) {
+int parse_with_strptime(char *time, const struct tm * const tm_now, struct tm* parsed_time, char** rest) {
 	// TODO: Sometimes, when running "countdown 1:0:59", it wants to wait until 1:0:58, not 1:0:59.
 	
 	// init tm_stop
@@ -82,11 +91,11 @@ int parse_with_strptime(char *time, struct tm* parsed_time, const struct tm * co
 	memcpy(&tm_stop, tm_now, sizeof(tm_stop));
 	tm_stop.tm_sec = 0;
 	
-	if (try_strptime(time, "%H:%M", &tm_stop) || try_strptime(time, "%H:%M:%S", &tm_stop)) {
+	if (try_strptime(time, "%H:%M", &tm_stop, rest) || try_strptime(time, "%H:%M:%S", &tm_stop, rest)) {
 		if (tm_diff(&tm_stop, tm_now) < 0) {
 			tm_stop.tm_mday += 1;	// tomorrow
 		}
-	} else if (try_strptime(time, "%A%n%H:%M", &tm_stop) || try_strptime(time, "%A%n%H:%M:%S", &tm_stop)) {	//I'm not sure %A sets the whole date, it might set only tm_wday, in which case mktime normalizes a non-matching tm_wday away.
+	} else if (try_strptime(time, "%A%n%H:%M", &tm_stop, rest) || try_strptime(time, "%A%n%H:%M:%S", &tm_stop, rest)) {	//I'm not sure %A sets the whole date, it might set only tm_wday, in which case mktime normalizes a non-matching tm_wday away.
 		// we need to transfer the info in tm_stop.tm_wday to tm_stop.mday, because mktime ignores tm_wday.
 		int days_diff = tm_stop.tm_wday - tm_now->tm_wday;
 		if (days_diff < 0)
@@ -96,12 +105,16 @@ int parse_with_strptime(char *time, struct tm* parsed_time, const struct tm * co
 		if (tm_diff(&tm_stop, tm_now) < 0) {
 			tm_stop.tm_mday += 7;	// next week
 		}
-	} else if (try_strptime(time, "%Y-%m-%d%n%H:%M", &tm_stop)) {
-	} else if (try_strptime(time, "%Y-%m-%d%n%H:%M:%S", &tm_stop)) {
+	} else if (try_strptime(time, "%Y-%m-%d%n%H:%M:%S", &tm_stop, rest)) {
+	} else if (try_strptime(time, "%Y-%m-%d%n%H:%M", &tm_stop, rest)) {
+	} else if (try_strptime(time, "%Y%n%m%n%d%n%H%n%M%n%S", &tm_stop, rest)) {
+	} else if (try_strptime(time, "%Y%n%m%n%d%n%H%n%M", &tm_stop, rest)) {
+	} else if (try_strptime(time, "%Y%n%m%n%d%n%H", &tm_stop, rest)) {
+	} else if (try_strptime(time, "%Y%n%m%n%d", &tm_stop, rest)) {
 	} else {
 		return 0; //time parsing error
 	}
-	
+
 	memcpy(parsed_time, &tm_stop, sizeof(tm_stop));
 	//print_tm(parsed_time);
 	return 1;
@@ -140,4 +153,22 @@ double tm_diff_to_now_seconds(const struct tm* tm_time) {
 	}
 
 	return waittime;
+}
+
+/* Like `parse_with_strptime`, but with subsecond resolution. */
+int parse_with_strptime_waittime(char *time, const struct tm * const tm_now, double* waittime) {
+	char* rest;
+	struct tm parsed_time;
+
+	if (!parse_with_strptime(time, tm_now, &parsed_time, &rest)) return 0;
+	*waittime = tm_diff_to_now_seconds(&parsed_time);
+	// parsing was successful.
+
+	char* endptr;
+	double seconds = strtod(rest, &endptr);
+	if (endptr != rest) {
+		*waittime += seconds;
+	}
+
+	return 1;
 }

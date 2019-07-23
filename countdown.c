@@ -95,9 +95,7 @@ int main(int argc, char** argv) {
 
 		struct tm tm_now, parsed_time;
 		get_tm_now(&tm_now);
-		if (parse_with_strptime(args, &parsed_time, &tm_now)) {
-			// parsing was successful.
-			waittime = tm_diff_to_now_seconds(&parsed_time);
+		if (parse_with_strptime_waittime(args, &tm_now, &waittime)) {
 			if (waittime < 0) {
 				usage("time is in the past");
 				exit(1);
