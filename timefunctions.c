@@ -43,14 +43,14 @@ double tm_diff(const struct tm* a, const struct tm* b) {
 	memcpy(&tmp_a, a, sizeof(tmp_a));
 	time_t t_a = mktime(&tmp_a);
 	if (t_a == -1) {
-		perror("mktime error");
+		perror("mktime error: maybe time too far into the future");
 		exit(2);
 	}
 	struct tm tmp_b;
 	memcpy(&tmp_b, b, sizeof(tmp_b));
 	time_t t_b = mktime(&tmp_b);
 	if (t_b == -1) {
-		perror("mktime error");
+		perror("mktime error: maybe time too far into the future");
 		exit(2);
 	}
 	
@@ -83,6 +83,8 @@ int try_localtime(const char* time, struct tm* tm, char** rest) {
 "%H:%M:%S" (today or tomorrow)
 "%A %H:%M" (weekday, in this or next week, seconds=0)
 "%A %H:%M:%S" (weekday, in this or next week)
+"%Y-%m-%d" (error if in the past, seconds=0)
+"%Y-%m-%d %H" (error if in the past, seconds=0)
 "%Y-%m-%d %H:%M" (error if in the past, seconds=0)
 "%Y-%m-%d %H:%M:%S" (error if in the past)
 "%Y%m%d %H%M%S" (error if in the past)
@@ -116,6 +118,8 @@ int parse_with_strptime(char *time, const struct tm * const tm_now, struct tm* p
 		}
 	} else if (try_strptime(time, "%Y-%m-%d%n%H:%M:%S", &tm_stop, rest)) {
 	} else if (try_strptime(time, "%Y-%m-%d%n%H:%M", &tm_stop, rest)) {
+	} else if (try_strptime(time, "%Y-%m-%d%n%H", &tm_stop, rest)) {
+	} else if (try_strptime(time, "%Y-%m-%d%n", &tm_stop, rest)) {
 	} else if (try_strptime(time, "%Y%n%m%n%d%n%H%n%M%n%S", &tm_stop, rest)) {
 	} else if (try_strptime(time, "%Y%n%m%n%d%n%H%n%M", &tm_stop, rest)) {
 	} else if (try_strptime(time, "%Y%n%m%n%d%n%H", &tm_stop, rest)) {
@@ -140,7 +144,7 @@ double tm_diff_to_now_seconds(const struct tm* tm_time) {
 		
 		time_t time_stop = mktime(&tm_stop);
 		if (time_stop == -1) {
-			perror("mktime error 1");
+			perror("mktime error: maybe time too far into the future");
 			exit(2);
 		}
 
