@@ -25,12 +25,7 @@ void usage(char *msg) {
 		fprintf(stderr, "If DATESFILE is specified with '-- -', reminders are read from standard input.\n");
 		fprintf(stderr, "\n");
 		fprintf(stderr, "DATE can have one of the following formats:\n");
-		fprintf(stderr, "7:4 or 07:04 (today or tomorrow, seconds=0)\n");
-		fprintf(stderr, "7:4:59 (today or tomorrow)\n");
-		fprintf(stderr, "Monday 7:4 (weekday, in this or next week, seconds=0)\n");
-		fprintf(stderr, "Monday 7:4:59 (weekday, in this or next week)\n");
-		fprintf(stderr, "2014-07-22 7:4 (seconds=0)\n");
-		fprintf(stderr, "2014-07-22 7:4:59\n");
+		usage_of_parse_with_strptime(stderr);
 		fprintf(stderr, "DATE can also be a date range of two dates of above formats separated by '~'.\n");
 		fprintf(stderr, "\n");
 		fprintf(stderr, "MESSAGE may be any string.\n");

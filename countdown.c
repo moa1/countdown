@@ -21,12 +21,7 @@ void usage(char* msg){
 	fprintf(stderr, "'d' for days.\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "POINT_IN_TIME can have one of the following formats:\n");
-	fprintf(stderr, "7:4 or 07:04 (today or tomorrow, seconds=0)\n");
-	fprintf(stderr, "7:4:59 (today or tomorrow)\n");
-	fprintf(stderr, "Monday 7:4 (weekday, in this or next week, seconds=0)\n");
-	fprintf(stderr, "Monday 7:4:59 (weekday, in this or next week)\n");
-	fprintf(stderr, "2014-07-22 7:4 (error if in the past, seconds=0)\n");
-	fprintf(stderr, "2014-07-22 7:4:59 (error if in the past)\n");
+	usage_of_parse_with_strptime(stderr);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Example 1: countdown 1.5m 3s\n");
 	fprintf(stderr, "Example 2: countdown 16:4\n");

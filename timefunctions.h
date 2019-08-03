@@ -8,3 +8,4 @@ void get_tm_now(struct tm* tm_now);
 int parse_with_strptime(char *time, const struct tm * const tm_now, struct tm* parsed_time, char** rest);
 double tm_diff_to_now_seconds(const struct tm* tm_time);
 int parse_with_strptime_waittime(char *time, const struct tm * const tm_now, double *waittime);
+void usage_of_parse_with_strptime(FILE* stream);

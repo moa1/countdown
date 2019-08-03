@@ -70,6 +70,14 @@ void get_tm_now(struct tm* tm_now) {
 	}
 }
 
+int try_localtime(const char* time, struct tm* tm, char** rest) {
+	if (time[0] == '@') {
+		time_t sse = strtol(&time[1], rest, 10);
+		return (localtime_r(&sse, tm) != NULL);
+	}
+	return 0;
+}
+
 /* Recognizes the following formats:
 "%H:%M" (today or tomorrow, seconds=0)
 "%H:%M:%S" (today or tomorrow)
@@ -81,6 +89,7 @@ void get_tm_now(struct tm* tm_now) {
 "%Y%m%d %H%M" (error if in the past)
 "%Y%m%d %H" (error if in the past)
 "%Y%m%d" (error if in the past)
+"@%s" (seconds since the Epoch 1970-01-01)
 Returns 1 if it succeeded, and in this case sets parsed_time.
 Returns 0 if parsing did not conform to one of the above formats. */
 int parse_with_strptime(char *time, const struct tm * const tm_now, struct tm* parsed_time, char** rest) {
@@ -111,6 +120,7 @@ int parse_with_strptime(char *time, const struct tm * const tm_now, struct tm* p
 	} else if (try_strptime(time, "%Y%n%m%n%d%n%H%n%M", &tm_stop, rest)) {
 	} else if (try_strptime(time, "%Y%n%m%n%d%n%H", &tm_stop, rest)) {
 	} else if (try_strptime(time, "%Y%n%m%n%d", &tm_stop, rest)) {
+	} else if (try_localtime(time, &tm_stop, rest)) {
 	} else {
 		return 0; //time parsing error
 	}
@@ -130,7 +140,7 @@ double tm_diff_to_now_seconds(const struct tm* tm_time) {
 		
 		time_t time_stop = mktime(&tm_stop);
 		if (time_stop == -1) {
-			perror("mktime error");
+			perror("mktime error 1");
 			exit(2);
 		}
 
@@ -171,4 +181,14 @@ int parse_with_strptime_waittime(char *time, const struct tm * const tm_now, dou
 	}
 
 	return 1;
+}
+
+void usage_of_parse_with_strptime(FILE* stream) {
+	fprintf(stream, "7:4 or 07:04 (today or tomorrow, seconds=0)\n");
+	fprintf(stream, "7:4:59 (today or tomorrow)\n");
+	fprintf(stream, "Monday 7:4 (weekday, in this or next week, seconds=0)\n");
+	fprintf(stream, "Monday 7:4:59 (weekday, in this or next week)\n");
+	fprintf(stream, "2014-07-22 7:4 (error if in the past, seconds=0)\n");
+	fprintf(stream, "2014-07-22 7:4:59 (error if in the past)\n");
+	fprintf(stream, "@1564866700 (seconds since epoch, like 'date +%%s')\n");
 }
